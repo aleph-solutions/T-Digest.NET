@@ -16,7 +16,7 @@ public class TDigest : ITDigest
 
     private const double DEFAULT_ACCURACY = .02;
     private const double DEFAULT_COMPRESSION = 25;
-
+    private const double DEFAULT_PRECISION = double.NaN;
 
     private CentroidTree _centroids;
     private double _average;
@@ -42,6 +42,11 @@ public class TDigest : ITDigest
     /// <inheritdoc />
     public double Max { get; private set; }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    public double Precision { get; private set; } = double.NaN;
+
     /// <inheritdoc />
     public int ExpectedSerializedBytesLength => SERIALIZATION_HEADER_SIZE + SERIALIZATION_ITEM_SIZE * _centroids.Count;
 
@@ -51,15 +56,18 @@ public class TDigest : ITDigest
     /// Construct a T-Digest,
     /// </summary>
     /// <param name="accuracy">Controls the trade-off between accuracy and memory consumption/performance.
-    /// Default value is .05, higher values result in worse accuracy, but better performance and decreased memory usage, while
+    /// Default value is .02, higher values result in worse accuracy, but better performance and decreased memory usage, while
     /// lower values result in better accuracy and increased performance and memory usage</param>
     /// <param name="compression">K value</param>
-    public TDigest(double accuracy = DEFAULT_ACCURACY, double compression = DEFAULT_COMPRESSION)
+    /// <param name="precision">If not NaN it is used to approximate centroid means to the nearest precision</param>
+    public TDigest(double accuracy = DEFAULT_ACCURACY, double compression = DEFAULT_COMPRESSION, double precision = DEFAULT_PRECISION)
         : this(new CentroidTree())
     {
         if (accuracy <= 0) throw new ArgumentOutOfRangeException(nameof(accuracy), "Accuracy must be greater than 0");
         if (compression < 15) throw new ArgumentOutOfRangeException(nameof(compression), "Compression constant must be 15 or greater");
+        if (precision < 0) throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be greater than 0 or NaN");
 
+        Precision = precision;
         Accuracy = accuracy;
         CompressionConstant = compression;
     }
@@ -72,6 +80,7 @@ public class TDigest : ITDigest
         CompressionConstant = digest.CompressionConstant;
         Min = digest.Min;
         Max = digest.Max;
+        Precision = digest.Precision;
     }
 
     private TDigest(CentroidTree centroids) => _centroids = centroids;
@@ -100,7 +109,8 @@ public class TDigest : ITDigest
 
         if (_centroids.GetOrClosest(value, out var candidateA, out var candidateB))
         {
-            candidateA!.Update(weight, value, true);
+            // I found a centroid with the same mean!
+            candidateA!.Update(weight, value, true, Precision);
             return;
         }
 
@@ -142,15 +152,17 @@ public class TDigest : ITDigest
 
         if (candidateA is not null)
         {
-            UpdateCentroid(candidateA, thresholdA, value, ref weight, true);
+            UpdateCentroid(candidateA, thresholdA, value, ref weight, true, Precision);
 
             if (candidateB is not null && weight > 0)
-                UpdateCentroid(candidateB, thresholdB, value, ref weight, true);
-
+                UpdateCentroid(candidateB, thresholdB, value, ref weight, true, Precision);
 
             if (weight == 0)
                 return;
         }
+
+        if (!double.IsNaN(Precision))
+            value = Math.Round(((double)value / Precision)) * Precision;
 
         _centroids.Add(value, weight);
 
@@ -362,11 +374,12 @@ public class TDigest : ITDigest
     /// Default value is .05, higher values result in worse accuracy, but better performance and decreased memory usage, while
     /// lower values result in better accuracy and increased performance and memory usage</param>
     /// <param name="compression">K value</param>
+    /// <param name="precision">Precision of Centroids</param>
     /// <returns>A T-Digest created by merging the specified T-Digests</returns>
-    public static TDigest Merge(TDigest a, TDigest b, double accuracy = DEFAULT_ACCURACY, double compression = DEFAULT_COMPRESSION)
+    public static TDigest Merge(TDigest a, TDigest b, double accuracy = DEFAULT_ACCURACY, double compression = DEFAULT_COMPRESSION, double precision = DEFAULT_PRECISION)
     {
         var count = a.Count + b.Count;
-        var tree = CompressCentroidTree(Enumerate(), count, accuracy);
+        var tree = CompressCentroidTree(Enumerate(), count, accuracy, precision);
 
         return new TDigest(tree)
         {
@@ -452,7 +465,7 @@ public class TDigest : ITDigest
     /// </summary>
     /// <param name="digests">T-Digests</param>
     /// <returns>A T-Digest created by merging the specified T-Digests</returns>
-    public static TDigest MergeMultiple(params TDigest[] digests) => MergeMultiple(DEFAULT_ACCURACY, DEFAULT_COMPRESSION, digests as IEnumerable<TDigest>);
+    public static TDigest MergeMultiple(params TDigest[] digests) => MergeMultiple(DEFAULT_ACCURACY, DEFAULT_COMPRESSION, digests as IEnumerable<TDigest>, DEFAULT_PRECISION);
 
     /// <summary>
     /// Merge multiple T-Digests
@@ -462,15 +475,16 @@ public class TDigest : ITDigest
     /// lower values result in better accuracy and increased performance and memory usage</param>
     /// <param name="compression">K value</param>
     /// <param name="digests">T-Digests</param>
+    /// <param name="precision">Precision of Centroids</param>
     /// <returns>A T-Digest created by merging the specified T-Digests</returns>
-    public static TDigest MergeMultiple(double accuracy, double compression, params TDigest[] digests) => MergeMultiple(accuracy, compression, digests as IEnumerable<TDigest>);
+    public static TDigest MergeMultiple(double accuracy, double compression, double precision, params TDigest[] digests) => MergeMultiple(accuracy, compression, digests as IEnumerable<TDigest>, precision);
 
     /// <summary>
     /// Merge multiple T-Digests with default accuracy and compression settings
     /// </summary>
     /// <param name="digests">T-Digests</param>
     /// <returns>A T-Digest created by merging the specified T-Digests</returns>
-    public static TDigest MergeMultiple(IEnumerable<TDigest> digests) => MergeMultiple(DEFAULT_ACCURACY, DEFAULT_COMPRESSION, digests);
+    public static TDigest MergeMultiple(IEnumerable<TDigest> digests) => MergeMultiple(DEFAULT_ACCURACY, DEFAULT_COMPRESSION, digests, DEFAULT_PRECISION);
 
     /// <summary>
     /// Merge multiple T-Digests
@@ -480,11 +494,12 @@ public class TDigest : ITDigest
     /// lower values result in better accuracy and increased performance and memory usage</param>
     /// <param name="compression">K value</param>
     /// <param name="digests">T-Digests</param>
+    /// <param name="precision">Precision parameter</param>
     /// <returns>A T-Digest created by merging the specified T-Digests</returns>
-    public static TDigest MergeMultiple(double accuracy, double compression, IEnumerable<TDigest> digests)
+    public static TDigest MergeMultiple(double accuracy, double compression, IEnumerable<TDigest> digests, double precision)
     {
         var count = digests.Sum(d => d.Count);
-        var tree = CompressCentroidTree(Enumerate(), count, accuracy);
+        var tree = CompressCentroidTree(Enumerate(), count, accuracy, precision);
 
         var digest = new TDigest(tree)
         {
@@ -658,10 +673,10 @@ public class TDigest : ITDigest
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateCentroid(Centroid centroid, double threshold, double value, ref double weight, bool withSubTree)
+    private static void UpdateCentroid(Centroid centroid, double threshold, double value, ref double weight, bool withSubTree, double precision)
     {
         var delta = Math.Min(threshold - centroid.weight, weight);
-        centroid.Update(delta, value, withSubTree);
+        centroid.Update(delta, value, withSubTree, precision);
         weight -= delta;
     }
 
@@ -679,9 +694,9 @@ public class TDigest : ITDigest
     private static double GetThreshold(double q, double count, double accuracy) => 4 * count * accuracy * q * (1 - q);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private CentroidTree CompressCentroidTree() => CompressCentroidTree(_centroids, _centroids.Root!.subTreeWeight, Accuracy);
+    private CentroidTree CompressCentroidTree() => CompressCentroidTree(_centroids, _centroids.Root!.subTreeWeight, Accuracy, Precision);
 
-    private static CentroidTree CompressCentroidTree(IEnumerable<Centroid> centroids, double count, double accuracy)
+    private static CentroidTree CompressCentroidTree(IEnumerable<Centroid> centroids, double count, double accuracy, double precision)
     {
         var builder = new CentroidTree.SortedBuilder();
 
@@ -708,7 +723,7 @@ public class TDigest : ITDigest
 
                 if (candidate is not null)
                 {
-                    UpdateCentroid(candidate, threshold, centroid.mean, ref weight, false);
+                    UpdateCentroid(candidate, threshold, centroid.mean, ref weight, false, precision);
                     candidate.subTreeWeight = candidate.weight;
                 }
 

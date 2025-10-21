@@ -25,6 +25,14 @@ internal partial class CentroidTree : IEnumerable<Centroid>
             _root = tree._root.CloneSubTree(out _min, out _max);
     }
 
+
+    /// <summary>
+    /// Return True if a centroid with the same mean is already present. False otherwise.
+    /// </summary>
+    /// <param name="mean"></param>
+    /// <param name="a"></param>
+    /// <param name="b"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool GetOrClosest(double mean, out Centroid? a, out Centroid? b)
     {
