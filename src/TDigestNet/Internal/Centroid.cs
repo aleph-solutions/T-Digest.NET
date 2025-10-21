@@ -1,3 +1,6 @@
+using System;
+using System.Runtime;
+
 namespace TDigestNet.Internal;
 
 internal sealed class Centroid
@@ -20,10 +23,15 @@ internal sealed class Centroid
 
     private Centroid() { }
 
-    public void Update(double deltaWeight, double value, bool withSubTree)
+    public void Update(double deltaWeight, double value, bool withSubTree, double precision)
     {
         weight += deltaWeight;
-        mean += deltaWeight * (value - mean) / weight;
+
+        double deltaMean = value - mean;
+        mean += deltaWeight * (deltaMean) / weight;
+
+        if (!double.IsNaN(precision))
+            mean = Math.Round(((double)mean / precision)) * precision;
 
         if (withSubTree)
             for (var node = this; node is not null; node = node.parent)
@@ -36,9 +44,9 @@ internal sealed class Centroid
 
         var sum = node.subTreeWeight - (node.right?.subTreeWeight ?? 0);
 
-        while(node.parent is not null)
+        while (node.parent is not null)
         {
-            if(ReferenceEquals(node, node.parent.right))
+            if (ReferenceEquals(node, node.parent.right))
                 sum += node.parent.subTreeWeight - node.subTreeWeight;
 
             node = node.parent;
