@@ -65,7 +65,7 @@ public class TDigest : ITDigest
     {
         if (accuracy <= 0) throw new ArgumentOutOfRangeException(nameof(accuracy), "Accuracy must be greater than 0");
         if (compression < 15) throw new ArgumentOutOfRangeException(nameof(compression), "Compression constant must be 15 or greater");
-        if (precision < 0) throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be greater than 0 or NaN");
+        if (precision <= 0) throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be greater than 0 or NaN");
 
         Precision = precision;
         Accuracy = accuracy;
