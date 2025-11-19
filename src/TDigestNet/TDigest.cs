@@ -43,9 +43,9 @@ public class TDigest : ITDigest
     public double Max { get; private set; }
 
     /// <summary>
-    /// 
+    /// Parameter used to round centroids
     /// </summary>
-    public double Precision { get; private set; } = double.NaN;
+    public double Precision { get; set; } = double.NaN;
 
     /// <inheritdoc />
     public int ExpectedSerializedBytesLength => SERIALIZATION_HEADER_SIZE + SERIALIZATION_ITEM_SIZE * _centroids.Count;
