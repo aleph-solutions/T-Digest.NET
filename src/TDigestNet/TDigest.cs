@@ -161,9 +161,6 @@ public class TDigest : ITDigest
                 return;
         }
 
-        if (!double.IsNaN(Precision))
-            value = Math.Round(((double)value / Precision)) * Precision;
-
         _centroids.Add(value, weight);
 
         if (_centroids.Count > (CompressionConstant / Accuracy))
