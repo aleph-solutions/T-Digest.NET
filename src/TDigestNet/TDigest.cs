@@ -53,6 +53,11 @@ public class TDigest : ITDigest
     internal CentroidTree InternalTree => _centroids;
 
     /// <summary>
+    /// The value rounded
+    /// </summary>
+    public double RoundedValue { get; private set; }
+
+    /// <summary>
     /// Construct a T-Digest,
     /// </summary>
     /// <param name="accuracy">Controls the trade-off between accuracy and memory consumption/performance.
@@ -90,6 +95,12 @@ public class TDigest : ITDigest
     {
         if (weight <= 0)
             throw new ArgumentOutOfRangeException(nameof(weight), "Weight must be greater than 0");
+
+        if (!double.IsNaN(Precision))
+        {
+            value = TDigestUtils.RoundWithPrecision(value, Precision);
+            RoundedValue = value;
+        }
 
         if (_centroids.Root is null)
         {
