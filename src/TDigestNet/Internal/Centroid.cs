@@ -31,7 +31,7 @@ internal sealed class Centroid
         mean += deltaWeight * (deltaMean) / weight;
 
         if (!double.IsNaN(precision))
-            mean = Math.Round(((double)mean / precision)) * precision;
+            mean = TDigestUtils.RoundWithPrecision(mean, precision);
 
         if (withSubTree)
             for (var node = this; node is not null; node = node.parent)
