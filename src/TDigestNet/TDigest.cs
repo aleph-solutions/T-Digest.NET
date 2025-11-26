@@ -97,10 +97,8 @@ public class TDigest : ITDigest
             throw new ArgumentOutOfRangeException(nameof(weight), "Weight must be greater than 0");
 
         if (!double.IsNaN(Precision))
-        {
             value = TDigestUtils.RoundWithPrecision(value, Precision);
-            RoundedValue = value;
-        }
+        RoundedValue = value;
 
         if (_centroids.Root is null)
         {
