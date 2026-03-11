@@ -11,19 +11,25 @@
         /// <returns></returns>
         public static double RoundWithPrecision(double value, double precision)
         {
-            string sci = precision.ToString("0.0e+0", System.Globalization.CultureInfo.InvariantCulture);
+            // Determine the exponent (base-10) of the precision without string conversions.
+            // Use the absolute precision to compute the order of magnitude.
+            if (precision == 0.0)
+            {
+                // For zero precision fallback to returning the original value to avoid divide-by-zero.
+                return value;
+            }
 
-            int exponent = int.Parse(sci.Split('e')[1], System.Globalization.CultureInfo.InvariantCulture);
+            double absPrecision = Math.Abs(precision);
+            int exponent = (int)Math.Floor(Math.Log10(absPrecision));
 
             int decimals = Math.Max(0, -exponent);
-            double valueRounded;
 
             if (decimals > 0)
-                valueRounded = Math.Round(value, decimals, MidpointRounding.AwayFromZero);
-            else
-                valueRounded = Math.Round(value / precision, MidpointRounding.AwayFromZero) * precision;
+            {
+                return Math.Round(value, decimals, MidpointRounding.AwayFromZero);
+            }
 
-            return valueRounded;
+            return Math.Round(value / precision, MidpointRounding.AwayFromZero) * precision;
         }
 
     }
