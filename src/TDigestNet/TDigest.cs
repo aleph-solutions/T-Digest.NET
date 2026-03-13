@@ -58,6 +58,11 @@ public class TDigest : ITDigest
     public double RoundedValue { get; private set; }
 
     /// <summary>
+    /// The number of elements added to TDigest
+    /// </summary>
+    public int NumElements { get; private set; }
+
+    /// <summary>
     /// Construct a T-Digest,
     /// </summary>
     /// <param name="accuracy">Controls the trade-off between accuracy and memory consumption/performance.
@@ -95,6 +100,8 @@ public class TDigest : ITDigest
     {
         if (weight <= 0)
             throw new ArgumentOutOfRangeException(nameof(weight), "Weight must be greater than 0");
+
+        NumElements += Convert.ToInt32(weight);
 
         if (!double.IsNaN(Precision))
             value = TDigestUtils.RoundWithPrecision(value, Precision);
@@ -241,7 +248,7 @@ public class TDigest : ITDigest
 
     /// <inheritdoc />
     public IEnumerable<DistributionPoint> GetDistribution() => _centroids
-        .Select(c => new DistributionPoint(c.mean, c.weight));
+        .Select(c => new DistributionPoint(c.mean, c.weight, c.weight / NumElements * 100));
 
     /// <inheritdoc />
     public TDigest MultiplyOn(double factor)
