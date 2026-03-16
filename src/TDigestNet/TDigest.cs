@@ -52,6 +52,9 @@ public class TDigest : ITDigest
 
     internal CentroidTree InternalTree => _centroids;
 
+    /// <inheritdoc />
+    public List<DistributionPoint> Centroids { get; set; } = new();
+
     /// <summary>
     /// The value rounded
     /// </summary>
@@ -61,6 +64,16 @@ public class TDigest : ITDigest
     /// The number of elements added to TDigest
     /// </summary>
     public int NumElements { get; private set; }
+
+    /// <summary>
+    /// The Distribution Point with the min value
+    /// </summary>
+    public DistributionPoint? MinDistributionPoint { get; private set; }
+
+    /// <summary>
+    /// The Distribution Point with the Max value
+    /// </summary>
+    public DistributionPoint? MaxDistributionPoint { get; private set; }
 
     /// <summary>
     /// Construct a T-Digest,
@@ -183,7 +196,7 @@ public class TDigest : ITDigest
             _centroids = CompressCentroidTree();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        double ComputeCentroidQuantile(Centroid centroid) => (centroid.SumOfLeft() - centroid.weight / 2) / _centroids.Root.subTreeWeight;
+        double ComputeCentroidQuantile(Centroid centroid) => (centroid.SumOfLeft() - centroid.count / 2) / _centroids.Root.subTreeWeight;
     }
 
     /// <inheritdoc />
@@ -208,7 +221,7 @@ public class TDigest : ITDigest
 
         double meanB;
         double pointB;
-        var pointWeight = nearest.weight;
+        var pointWeight = nearest.count;
 
         if (weight < pointA)
         {
@@ -221,7 +234,7 @@ public class TDigest : ITDigest
             else
             {
                 meanB = nearest.mean;
-                pointB = pointA - (pointWeight + nearest.weight) / 2;
+                pointB = pointA - (pointWeight + nearest.count) / 2;
             }
         }
         else
@@ -235,7 +248,7 @@ public class TDigest : ITDigest
             else
             {
                 meanB = nearest.mean;
-                pointB = pointA + (pointWeight + nearest.weight) / 2;
+                pointB = pointA + (pointWeight + nearest.count) / 2;
             }
         }
 
@@ -248,7 +261,35 @@ public class TDigest : ITDigest
 
     /// <inheritdoc />
     public IEnumerable<DistributionPoint> GetDistribution() => _centroids
-        .Select(c => new DistributionPoint(c.mean, c.weight, c.weight / NumElements * 100));
+        .Select(c => new DistributionPoint(c.mean, c.count, c.count / NumElements * 100)); // TODO: Devo prednere il centroide minimo e massimo cosi non devo nemmeno ordinarli 
+
+
+    /// <inheritdoc />
+    /// <inheritdoc />
+    public List<DistributionPoint> GetFilteredDistribution()
+    {
+        Centroids.Clear();
+
+        DistributionPoint? minPoint = null;
+        DistributionPoint? maxPoint = null;
+
+        foreach (Centroid c in _centroids)
+        {
+            DistributionPoint d = new DistributionPoint(c.mean, c.count, c.count / NumElements * 100);
+            Centroids.Add(d);
+
+            if (minPoint == null || d.Mean < minPoint.Value.Mean)
+                minPoint = d;
+
+            if (maxPoint == null || d.Mean > maxPoint.Value.Mean)
+                maxPoint = d;
+        }
+
+        MinDistributionPoint = minPoint;
+        MaxDistributionPoint = maxPoint;
+
+        return Centroids;
+    }
 
     /// <inheritdoc />
     public TDigest MultiplyOn(double factor)
@@ -434,7 +475,7 @@ public class TDigest : ITDigest
             {
                 if (nodeA.mean == nodeB.mean)
                 {
-                    yield return new(nodeA.mean, nodeA.weight + nodeB.weight);
+                    yield return new(nodeA.mean, nodeA.count + nodeB.count);
                     goto noValuesYet;
                 }
 
@@ -558,12 +599,12 @@ public class TDigest : ITDigest
                         var current = centroids[i];
                         if (current is not null && minimum.mean == current.mean)
                         {
-                            weight += current.weight;
+                            weight += current.count;
                             LoadValue(i);
                         }
                     }
 
-                    if (weight == minimum.weight)
+                    if (weight == minimum.count)
                         yield return minimum;
                     else
                         yield return new(minimum.mean, weight);
@@ -664,7 +705,7 @@ public class TDigest : ITDigest
             Write(writeTarget, centroid.mean);
             writeTarget = writeTarget.Slice(8);
 
-            Write(writeTarget, centroid.weight);
+            Write(writeTarget, centroid.count);
             writeTarget = writeTarget.Slice(8);
         }
 
@@ -688,7 +729,7 @@ public class TDigest : ITDigest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void UpdateCentroid(Centroid centroid, double threshold, double value, ref double weight, bool withSubTree, double precision)
     {
-        var delta = Math.Min(threshold - centroid.weight, weight);
+        var delta = Math.Min(threshold - centroid.count, weight);
         centroid.Update(delta, value, withSubTree, precision);
         weight -= delta;
     }
@@ -696,7 +737,7 @@ public class TDigest : ITDigest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void FilterCandidate(ref Centroid? candidate, double threshold, double weight)
     {
-        if (candidate is not null && candidate.weight + weight >= threshold)
+        if (candidate is not null && candidate.count + weight >= threshold)
             candidate = null;
     }
 
@@ -718,18 +759,18 @@ public class TDigest : ITDigest
         if (enumerator.MoveNext())
         {
             var centroid = enumerator.Current;
-            var nearest = new Centroid(centroid.mean, centroid.weight);
-            var sum = centroid.weight;
+            var nearest = new Centroid(centroid.mean, centroid.count);
+            var sum = centroid.count;
             builder.Add(nearest);
 
             while (enumerator.MoveNext())
             {
                 centroid = enumerator.Current;
-                var weight = centroid.weight;
+                var weight = centroid.count;
 
                 var candidate = nearest;
 
-                var threshold = GetThreshold((sum - candidate.weight / 2) / count, count, accuracy);
+                var threshold = GetThreshold((sum - candidate.count / 2) / count, count, accuracy);
                 FilterCandidate(ref candidate, threshold, weight);
 
                 sum += weight;
@@ -737,7 +778,7 @@ public class TDigest : ITDigest
                 if (candidate is not null)
                 {
                     UpdateCentroid(candidate, threshold, centroid.mean, ref weight, false, precision);
-                    candidate.subTreeWeight = candidate.weight;
+                    candidate.subTreeWeight = candidate.count;
                 }
 
                 if (weight > 0)

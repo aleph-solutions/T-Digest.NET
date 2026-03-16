@@ -10,7 +10,7 @@ partial class CentroidTree
 
         public void Add(Centroid node)
         {
-            node.subTreeWeight = node.weight;
+            node.subTreeWeight = node.count;
 
             if (_tail is null)
             {
