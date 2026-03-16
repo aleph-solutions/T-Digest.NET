@@ -264,9 +264,12 @@ public class TDigest : ITDigest
         .Select(c => new DistributionPoint(c.mean, c.count, c.count / NumElements * 100)); // TODO: Devo prednere il centroide minimo e massimo cosi non devo nemmeno ordinarli 
 
 
-    /// <inheritdoc />
-    /// <inheritdoc />
-    public List<DistributionPoint> GetFilteredDistribution()
+    /// <summary>
+    /// Get the list of centroids that are above a theshold
+    /// </summary>
+    /// <param name="thesholdPerc">The percentage threshold used to keep centroids. If NaN, keep all centroids.</param>
+    /// <returns>A list of DistributionPoint</returns>
+    public List<DistributionPoint> GetFilteredDistribution(double thesholdPerc)
     {
         Centroids.Clear();
 
@@ -275,14 +278,18 @@ public class TDigest : ITDigest
 
         foreach (Centroid c in _centroids)
         {
-            DistributionPoint d = new DistributionPoint(c.mean, c.count, c.count / NumElements * 100);
-            Centroids.Add(d);
+            double perc = c.count / NumElements * 100;
+            if (double.IsNaN(thesholdPerc) || perc >= thesholdPerc)
+            {
+                DistributionPoint d = new DistributionPoint(c.mean, c.count, perc);
+                Centroids.Add(d);
 
-            if (minPoint == null || d.Mean < minPoint.Value.Mean)
-                minPoint = d;
+                if (minPoint == null || d.Mean < minPoint.Value.Mean)
+                    minPoint = d;
 
-            if (maxPoint == null || d.Mean > maxPoint.Value.Mean)
-                maxPoint = d;
+                if (maxPoint == null || d.Mean > maxPoint.Value.Mean)
+                    maxPoint = d;
+            }
         }
 
         MinDistributionPoint = minPoint;
