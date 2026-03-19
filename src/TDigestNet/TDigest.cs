@@ -261,7 +261,7 @@ public class TDigest : ITDigest
 
     /// <inheritdoc />
     public IEnumerable<DistributionPoint> GetDistribution() => _centroids
-        .Select(c => new DistributionPoint(c.mean, c.count, c.count / NumElements * 100)); // TODO: Devo prednere il centroide minimo e massimo cosi non devo nemmeno ordinarli 
+        .Select(c => new DistributionPoint(c.mean, c.count, c.count / NumElements * 100)); 
 
 
     /// <summary>
