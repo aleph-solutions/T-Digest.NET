@@ -273,7 +273,13 @@ internal partial class CentroidTree : IEnumerable<Centroid>
             yield break;
 
         var maxDepth = Log2(_count + 1) << 1;
-        var hints = new Centroid[maxDepth - 2];
+
+        Centroid[] hints;
+        if (maxDepth == 2)
+            hints = Array.Empty<Centroid>();
+        else
+            hints = new Centroid[maxDepth - 2];
+
         var hintCount = 0;
 
     traverse:
