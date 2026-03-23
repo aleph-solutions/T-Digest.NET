@@ -49,7 +49,7 @@ public class TestSerialization : TestBase
             Assert.Multiple(() =>
             {
                 Assert.That(a[i].Count, Is.EqualTo(b[i].Count), "Centroid counts are not equal after serialization");
-                Assert.That(a[i].Value, Is.EqualTo(b[i].Value), "Centroid means are not equal after serialization");
+                Assert.That(a[i].Mean, Is.EqualTo(b[i].Mean), "Centroid means are not equal after serialization");
             });
     }
 

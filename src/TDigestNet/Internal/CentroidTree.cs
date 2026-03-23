@@ -78,13 +78,13 @@ internal partial class CentroidTree : IEnumerable<Centroid>
 
         if (weight <= 0)
         {
-            point = _min!.weight / 2;
+            point = _min!.count / 2;
             return _min;
         }
 
         if (node.subTreeWeight <= weight)
         {
-            point = node.subTreeWeight - _max!.weight / 2;
+            point = node.subTreeWeight - _max!.count / 2;
             return _max;
         }
 
@@ -103,18 +103,18 @@ internal partial class CentroidTree : IEnumerable<Centroid>
                 continue;
             }
 
-            if (leftWeight + node.weight < weight)
+            if (leftWeight + node.count < weight)
             {
                 if (node.right is null)
                     goto returnCurrent;
 
-                sum = leftWeight + node.weight;
+                sum = leftWeight + node.count;
                 node = node.right;
                 continue;
             }
 
         returnCurrent:
-            point = sum + (node.left?.subTreeWeight ?? 0) + node.weight / 2;
+            point = sum + (node.left?.subTreeWeight ?? 0) + node.count / 2;
             return node;
         }
     }
@@ -176,7 +176,7 @@ internal partial class CentroidTree : IEnumerable<Centroid>
             node.subTreeWeight += weight;
             if (mean == node.mean)
             {
-                node.weight += weight;
+                node.count += weight;
                 return;
             }
 
@@ -273,7 +273,13 @@ internal partial class CentroidTree : IEnumerable<Centroid>
             yield break;
 
         var maxDepth = Log2(_count + 1) << 1;
-        var hints = new Centroid[maxDepth - 2];
+
+        Centroid[] hints;
+        if (maxDepth == 2)
+            hints = Array.Empty<Centroid>();
+        else
+            hints = new Centroid[maxDepth - 2];
+
         var hintCount = 0;
 
     traverse:

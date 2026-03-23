@@ -6,7 +6,7 @@ namespace TDigestNet.Internal;
 internal sealed class Centroid
 {
     public double mean;
-    public double weight;
+    public double count;
 
     public NodeColor color;
     public Centroid? parent;
@@ -18,17 +18,17 @@ internal sealed class Centroid
     public Centroid(double mean, double weight)
     {
         this.mean = mean;
-        this.weight = weight;
+        this.count = weight;
     }
 
     private Centroid() { }
 
     public void Update(double deltaWeight, double value, bool withSubTree, double precision)
     {
-        weight += deltaWeight;
+        count += deltaWeight;
 
         double deltaMean = value - mean;
-        mean += deltaWeight * (deltaMean) / weight;
+        mean += deltaWeight * (deltaMean) / count;
 
         if (!double.IsNaN(precision))
             mean = TDigestUtils.RoundWithPrecision(mean, precision);
@@ -60,7 +60,7 @@ internal sealed class Centroid
         var node = min = max = new Centroid();
 
         node.mean = mean;
-        node.weight = weight;
+        node.count = count;
         node.color = color;
         node.subTreeWeight = subTreeWeight;
 

@@ -51,7 +51,7 @@ partial class TestBase
 
     double ValidateWeights(Centroid node)
     {
-        var weight = node.weight;
+        var weight = node.count;
         if (node.left is not null)
             weight += ValidateWeights(node.left);
         if (node.right is not null)
